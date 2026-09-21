@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مسابقة التجويد الجماعية</title>
+    <style>
+        :root { --primary: #2c3e50; --bg: #f5f6fa; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 480px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 { color: var(--primary); margin-bottom: 10px; }
+        p { color: #7f8c8d; font-size: 15px; margin-bottom: 30px; }
+        .choice-btn {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            margin: 12px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+        .host-btn { background: #2c3e50; }
+        .host-btn:hover { background: #34495e; }
+        .player-btn { background: #2ecc71; }
+        .player-btn:hover { background: #27ae60; }
+        .icon { font-size: 26px; display: block; margin-bottom: 6px; }
+        .copyright { text-align: center; font-size: 12px; color: #95a5a6; margin-top: 25px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>مسابقة التجويد الجماعية 🎮</h1>
+    <p>اختر دورك للانضمام إلى المسابقة التفاعلية</p>
+
+    <a class="choice-btn host-btn" href="host.html">
+        <span class="icon">🖥️</span>
+        أنا المضيف (عرض الشاشة الرئيسية)
+    </a>
+
+    <a class="choice-btn player-btn" href="player.html">
+        <span class="icon">📱</span>
+        أنا لاعب (الدخول من هاتفي)
+    </a>
+
+    <div class="copyright">جميع الحقوق محفوظة &copy; باسم أبو أنس 2026</div>
+</div>
+
+</body>
+</html>
