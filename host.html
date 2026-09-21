@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم والمضيف - مسابقة التجويد سحابياً</title>
+    <style>
+        :root { --primary: #2c3e50; --success: #2ecc71; --danger: #e74c3c; --bg: #f5f6fa; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { max-width: 800px; width: 100%; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.1); text-align: center; }
+        h1 { color: var(--primary); margin-bottom: 10px; }
+        .room-pin { font-size: 32px; font-weight: bold; color: #2980b9; background: #e1f5fe; padding: 10px 20px; border-radius: 8px; display: inline-block; margin: 15px 0; border: 2px dashed #3498db; }
+        .timer-big { font-size: 48px; font-weight: bold; color: #e67e22; background: #fff3e0; width: 110px; height: 110px; line-height: 110px; border-radius: 50%; margin: 20px auto; border: 4px solid #ffb74d; }
+        .question-box { font-size: 26px; font-weight: bold; color: var(--primary); margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .option-display { padding: 20px; font-size: 20px; color: white; border-radius: 10px; text-align: right; font-weight: bold; }
+        .opt-0 { background-color: #e74c3c; } .opt-1 { background-color: #3498db; } .opt-2 { background-color: #f1c40f; color: #2c3e50; } .opt-3 { background-color: #2ecc71; }
+        .control-btn { background: var(--primary); color: white; border: none; padding: 15px 40px; font-size: 18px; border-radius: 8px; cursor: pointer; margin-top: 30px; font-weight: bold; }
+        .control-btn:hover { background: #34495e; }
+        .hidden { display: none !important; }
+        .player-tag { display: inline-block; padding: 8px 15px; margin: 5px; border-radius: 20px; font-weight: bold; background: #dfe4ea; color: #2f3542; }
+        .leaderboard-list { text-align: right; max-width: 400px; margin: 20px auto; font-size: 20px; line-height: 2; }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <div id="lobby-screen">
+        <h1>مسابقة التجويد التفاعلية (كاهوت)</h1>
+        <p style="font-size: 18px; color: #7f8c8d;">أطلب من المتسابقين إدخال الرمز التالي في هواتفهم:</p>
+        <div class="room-pin">رمز الغرفة: <span id="pin-number">2026</span></div>
+        <div style="margin-top: 20px;">
+            <h3>اللاعبون المنضمون حالياً (<span id="players-count">0</span>):</h3>
+            <div id="players-list"></div>
+        </div>
+        <button class="control-btn" onclick="startBroadcasting()">ابدأ عرض المسابقة 🚀</button>
+    </div>
+
+    <div id="game-screen" class="hidden">
+        <div class="timer-big" id="countdown">20</div>
+        <div class="question-box" id="question-holder">جاري تحميل السؤال الأول...</div>
+        <div class="options-grid" id="options-holder"></div>
+        <button class="control-btn" id="next-btn" onclick="nextQuestion()">السؤال التالي ⬅️</button>
+    </div>
+
+    <div id="leaderboard-screen" class="hidden">
+        <h1>🏆 لوحة الصدارة النهائية 🏆</h1>
+        <div class="leaderboard-list" id="leaderboard-content"></div>
+        <button class="control-btn" onclick="resetGameServer()">إعادة تصفير اللعبة</button>
+    </div>
+</div>
+
+<script>
+// دمج كافة مفاتيح الـ API المستخرجة من شاشتك لضمان التوثيق المفتوح
+const firebaseConfig = {
+    apiKey: "AIzaSyDlp5NX_GbR1CPwUVerPaMhA05yK39FmEE",
+    authDomain: "tajweed-quiz-challenge.firebaseapp.com",
+    databaseURL: "https://tajweed-quiz-challenge-default-rtdb.firebaseio.com",
+    projectId: "tajweed-quiz-challenge",
+    storageBucket: "tajweed-quiz-challenge.appspot.com",
+    messagingSenderId: "311935442055",
+    appId: "1:311935442055:web:5163bd442ef57b8504a79c"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const roomPIN = "2026"; 
+document.getElementById('pin-number').innerText = roomPIN;
+
+const questionsBank = [
+    { q: "عدد مراحل نزول القرءان الكريم هي:", options: ["مرحلة واحدة", "مرحلتين", "ثلاثة مراحل", "أربعة مراحل"], correct: 2 },
+    { q: "أول مراحل نزول القرءان الكريم هي من:", options: ["اللوح المحفوظ إلى السماء الدنيا", "السماء الدنيا على قلب المصطفى", "السماء الدنيا إلى اللوح المحفوظ", "الله عز وجل إلى اللوح المحفوظ"], correct: 3 },
+    { q: "نزل الوحي على رسول الله صلى الله عليه وسلم على مدار:", options: ["سبعة عشر سنة", "ثلاثة وعشرون سنة", "خمسة وعشرون سنة", "اثنان وثلاثون سنة"], correct: 1 },
+    { q: "كان أول نزول القرءان الكريم على قلب المصطفى على حرف:", options: ["قريش", "ثقيف", "تميم", "هوازن"], correct: 0 },
+    { q: "إخراج كل حرف من مخرجه وإعطاؤه حقه ومستحقه من الصفات والأحكام هو:", options: ["التجويد", "الترتيل", "مخارج الحروف", "صفات الحروف"], correct: 0 },
+    { q: "تطبيق أحكام التلاوة والعمل بها أثناء القراءة يعتبر حكمه:", options: ["مستحب", "اختياري", "فرض كفاية", "فرض عين"], correct: 3 },
+    { q: "معرفة أحكام التلاوة من الناحية النظرية والعلمية حكمه:", options: ["مستحب", "اختياري", "فرض كفاية", "فرض عين"], correct: 2 },
+    { q: "مرتبة القراءة بتؤدة واطمئنان وبطء مع مراعاة الأحكام تسمى:", options: ["الحدر", "التحقيق", "التدوير", "الترتيل"], correct: 1 },
+    { q: "مرتبة إدراج القراءة وسرعتها مع مراعاة الأحكام والأزمنة تسمى:", options: ["الحدر", "التحقيق", "التدوير", "الترتيل"], correct: 0 },
+    { q: "مرتبة قراءة القرءان بصفة متوسطة بين التحقيق والحدر تسمى:", options: ["الحدر", "التحقيق", "التدوير", "الترتيل"], correct: 2 },
+    { q: "عدد سور القرءان الكريم هي:", options: ["112 سورة", "113 سورة", "114 سورة", "115 سورة"], correct: 2 },
+    { q: "الصحابي الذي كُلف بجمع القرءان وتتبعه في عهد الصديق هو:", options: ["علي بن أبي طالب", "زيد بن ثابت", "عبد الله بن مسعود", "معاذ بن جبل"], correct: 1 },
+    { q: "صاحب فكرة تدوين المصحف والإشارة بها على أبي بكر الصديق هو:", options: ["أبو بكر الصديق", "عمر بن الخطاب", "زيد بن ثابت", "عثمان بن عفان"], correct: 1 },
+    { q: "عدد قواعد الرسم العثماني الرئيسية هي:", options: ["أربعة قواعد", "خمسة قواعد", "ستة قواعد", "سبعة قواعد"], correct: 2 },
+    { q: "ما طابق فيه الخط اللفظ في تدوين الكلمات يسمى:", options: ["رسم اصطلاحي", "رسم قياسي", "رسم عربي", "رسم كوفي"], correct: 1 },
+    { q: "ما خالف فيه الخط اللفظ بزيادة أو حذف أو بدل يسمى:", options: ["الرسم الاصطلاحي", "الرسم القياسي", "الرسم العربي", "الرسم الكوفي"], correct: 0 },
+    { q: "كتابة الياء المتطرفة مردودة إلى الخلف في الضبط تسمى:", options: ["العقص", "الوقص", "الفقص", "المقص"], correct: 0 },
+    { q: "كتابة الياء معرّقة وممدودة إلى الأمام في الضبط تسمى:", options: ["العقص", "الوقص", "الفقص", "المقص"], correct: 1 },
+    { q: "عالم جليل قام بوضع نقط الإعراب (الحركات) أول مرة هو:", options: ["الخليل بن أحمد", "نصر بن عاصم", "أبو الأسود الدؤلي", "ابن مجاهد"], correct: 2 },
+    { q: "عالم جليل قام بوضع نقط الإعجام (تمييز الحروف المتشابهة) هو:", options: ["الخليل بن أحمد", "نصر بن عاصم", "أبو الأسود الدؤلي", "ابن مجاهد"], correct: 1 }
+];
+
+let currentIndex = -1;
+let timeLeft = 20;
+let timer = null;
+let currentQuestionActive = false;
+
+db.ref(`rooms/${roomPIN}/players`).on('value', (snapshot) => {
+    const playersData = snapshot.val() || {};
+    const listHolder = document.getElementById('players-list');
+    listHolder.innerHTML = '';
+    let count = 0;
+    for (let id in playersData) {
+        count++;
+        const tag = document.createElement('span');
+        tag.className = 'player-tag';
+        tag.textContent = '👤 ' + playersData[id].name;
+        listHolder.appendChild(tag);
+    }
+    document.getElementById('players-count').innerText = count;
+});
+
+function startBroadcasting() {
+    document.getElementById('lobby-screen').classList.add('hidden');
+    document.getElementById('game-screen').classList.remove('hidden');
+    nextQuestion();
+}
+
+function nextQuestion() {
+    currentIndex++;
+    if (currentIndex >= questionsBank.length) {
+        showFinalLeaderboard();
+        return;
+    }
+
+    currentQuestionActive = true;
+    db.ref(`rooms/${roomPIN}/status`).set({ currentIndex: currentIndex, state: "active" });
+
+    const currentQ = questionsBank[currentIndex];
+    document.getElementById('question-holder').innerText = `السؤال ${currentIndex + 1}: ${currentQ.q}`;
+    
+    const holder = document.getElementById('options-holder');
+    holder.innerHTML = '';
+    currentQ.options.forEach((opt, idx) => {
+        holder.innerHTML += `<div class="option-display opt-${idx}">${opt}</div>`;
+    });
+
+    timeLeft = 20;
+    document.getElementById('countdown').innerText = timeLeft;
+    clearInterval(timer);
+    
+    timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('countdown').innerText = timeLeft;
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            currentQuestionActive = false;
+            db.ref(`rooms/${roomPIN}/status`).set({ currentIndex: currentIndex, state: "frozen" });
+            document.getElementById('question-holder').innerText += " (انتهى وقت الإجابة 🛑)";
+        }
+    }, 1000);
+}
+
+db.ref(`rooms/${roomPIN}/answers`).on('child_added', (snapshot) => {
+    if (!currentQuestionActive) return;
+    const ans = snapshot.val();
+    
+    if (ans.qIdx === currentIndex) {
+        const correctAns = questionsBank[currentIndex].correct;
+        if (ans.chosen === correctAns) {
+            const speedBonus = Math.round((timeLeft / 20) * 500);
+            const scoreGained = 500 + speedBonus;
+            
+            db.ref(`rooms/${roomPIN}/players/${ans.pId}/score`).transaction((currentScore) => {
+                return (currentScore || 0) + scoreGained;
+            });
+        }
+    }
+});
+
+function showFinalLeaderboard() {
+    document.getElementById('game-screen').classList.add('hidden');
+    document.getElementById('leaderboard-screen').classList.remove('hidden');
+    db.ref(`rooms/${roomPIN}/status`).set({ state: "ended" });
+
+    db.ref(`rooms/${roomPIN}/players`).once('value', (snapshot) => {
+        const players = snapshot.val() || {};
+        let sorted = [];
+        for (let id in players) { sorted.push(players[id]); }
+        sorted.sort((a,b) => b.score - a.score);
+
+        const board = document.getElementById('leaderboard-content');
+        board.innerHTML = '';
+        sorted.forEach((p, idx) => {
+            const row = document.createElement('div');
+            const rank = document.createElement('strong');
+            rank.textContent = `المركز ${idx+1}:`;
+            row.appendChild(rank);
+            row.appendChild(document.createTextNode(` ${p.name} ➡️ ✨ ${p.score || 0} نقطة`));
+            board.appendChild(row);
+        });
+    });
+}
+
+function resetGameServer() {
+    db.ref(`rooms/${roomPIN}`).remove();
+    location.reload();
+}
+</script>
+</body>
+</html>
