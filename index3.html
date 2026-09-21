@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مسابقة تجويد القرآن الكريم</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --bg: #f5f6fa;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1, h2 { text-align: center; color: var(--primary); }
+        .notice {
+            background: #e1f5fe;
+            padding: 15px;
+            border-radius: 8px;
+            border-right: 5px solid #0288d1;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: right;
+        }
+        .btn:hover:not([disabled]) {
+            background: #f0f0f0;
+            border-color: var(--primary);
+        }
+        .btn[disabled] { cursor: not-allowed; }
+        .result-box {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .correct-card { background: #e8f5e9; border-right: 5px solid var(--success); }
+        .wrong-card { background: #ffebee; border-right: 5px solid var(--danger); }
+        .score-title { font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- شاشة البداية والتنويه -->
+    <div id="start-screen">
+        <h1>مسابقة علوم القرآن والتجويد</h1>
+        <div class="notice">
+            <strong>تنويه هام:</strong> جميع أسئلة هذه المسابقة مستنبطة ومقتبسة من كتاب <strong>"في تجويد القرءان الكريم"</strong> للمؤلف <strong>أشرف فوزي العشي</strong>.
+        </div>
+        <button class="btn" style="text-align:center; background: var(--primary); color:white;" onclick="startQuiz()">ابدأ المسابقة الآن</button>
+    </div>
+
+    <!-- شاشة اللعب -->
+    <div id="quiz-screen" class="hidden">
+        <h2 id="question-text">جاري تحميل السؤال...</h2>
+        <div id="options-container"></div>
+    </div>
+
+    <!-- شاشة النهاية والنتيجة -->
+    <div id="result-screen" class="hidden">
+        <h2>تمت المسابقة بنجاح!</h2>
+        <div class="score-title" id="final-score">نتيجتك: 0 من 100</div>
+        <div id="review-container"></div>
+        <button class="btn" style="text-align:center; background: var(--primary); color:white;" onclick="location.reload()">إعادة اللعب</button>
+    </div>
+</div>
+
+<script>
+// بنك الأسئلة الشامل (مستنبط من الكتاب المرفق)
+const allQuestions = [
+    { q: "عدد مراحل نزول القرءان الكريم هي:", id: 1, options: ["مرحلة واحدة", "مرحلتين", "ثلاثة مراحل", "أربعة مراحل"], correct: 2 },
+    { q: "أول مراحل نزول القرءان الكريم هي من:", id: 2, options: ["اللوح المحفوظ إلى السماء الدنيا", "السماء الدنيا على قلب المصطفى", "السماء الدنيا إلى اللوح المحفوظ", "الله عز وجل إلى اللوح المحفوظ"], correct: 3 },
+    { q: "نزل الوحي على رسول الله صلى الله عليه وسلم على مدار:", id: 3, options: ["سبعة عشر سنة", "ثلاثة وعشرون سنة", "خمسة وعشرون سنة", "اثنان وثلاثون سنة"], correct: 1 },
+    { q: "كان أول نزول القرءان الكريم على قلب المصطفى على حرف:", id: 4, options: ["قريش", "ثقيف", "تميم", "هوازن"], correct: 0 },
+    { q: "إخراج كل حرف من مخرجه وإعطاؤه حقه ومستحقه من الصفات والأحكام هو:", id: 5, options: ["التجويد", "الترتيل", "مخارج الحروف", "صفات الحروف"], correct: 0 },
+    { q: "تطبيق أحكام التلاوة والعمل بها أثناء القراءة يعتبر حكمه:", id: 6, options: ["مستحب", "اختياري", "فرض كفاية", "فرض عين"], correct: 3 },
+    { q: "معرفة أحكام التلاوة من الناحية النظرية والعلمية حكمه:", id: 7, options: ["مستحب", "اختياري", "فرض كفاية", "فرض عين"], correct: 2 },
+    { q: "مرتبة القراءة بتؤدة واطمئنان وبطء مع مراعاة الأحكام تسمى:", id: 8, options: ["الحدر", "التحقيق", "التدوير", "الترتيل"], correct: 1 },
+    { q: "مرتبة إدراج القراءة وسرعتها مع مراعاة الأحكام والأزمنة تسمى:", id: 9, options: ["الحدر", "التحقيق", "التدوير", "الترتيل"], correct: 0 },
+    { q: "مرتبة قراءة القرءان بصفة متوسطة بين التحقيق والحدر تسمى:", id: 10, options: ["الحدر", "التحقيق", "التدوير", "الترتيل"], correct: 2 },
+    { q: "عدد سور القرءان الكريم هي:", id: 11, options: ["112 سورة", "113 سورة", "114 sورة", "115 سورة"], correct: 2 },
+    { q: "الصحابي الذي كُلف بجمع القرءان وتتبعه في عهد الصديق هو:", id: 12, options: ["علي بن أبي طالب", "زيد بن ثابت", "عبد الله بن مسعود", "معاذ بن جبل"], correct: 1 },
+    { q: "صاحب فكرة تدوين المصحف والإشارة بها على أبي بكر الصديق هو:", id: 13, options: ["أبو بكر الصديق", "عمر بن الخطاب", "زيد بن ثابت", "عثمان بن عفان"], correct: 1 },
+    { q: "عدد قواعد الرسم العثماني الرئيسية هي:", id: 14, options: ["أربعة قواعد", "خمسة قواعد", "ستة قواعد", "سبعة قواعد"], correct: 2 },
+    { q: "ما طابق فيه الخط اللفظ في تدوين الكلمات يسمى:", id: 15, options: ["رسم اصطلاحي", "رسم قياسي", "رسم عربي", "رسم كوفي"], correct: 1 },
+    { q: "ما خالف فيه الخط اللفظ بزيادة أو حذف أو بدل يسمى:", id: 16, options: ["الرسم الاصطلاحي", "الرسم القياسي", "الرسم العربي", "الرسم الكوفي"], correct: 0 },
+    { q: "كتابة الياء المتطرفة مردودة إلى الخلف في الضبط تسمى:", id: 17, options: ["العقص", "الوقص", "الفقص", "المقص"], correct: 0 },
+    { q: "كتابة الياء معرّقة وممدودة إلى الأمام في الضبط تسمى:", id: 18, options: ["العقص", "الوقص", "الفقص", "المقص"], correct: 1 },
+    { q: "عالم جليل قام بوضع نقط الإعراب (الحركات) أول مرة هو:", id: 19, options: ["الخليل بن أحمد", "نصر بن عاصم", "أبو الأسود الدؤلي", "ابن مجاهد"], correct: 2 },
+    { q: "عالم جليل قام بوضع نقط الإعجام (تمييز الحروف المتشابهة) هو:", id: 20, options: ["الخليل بن أحمد", "نصر بن عاصم", "أبو الأسود الدؤلي", "ابن مجاهد"], correct: 1 }
+];
+
+let gameQuestions = [];
+let currentQuestionIndex = 0;
+let userAnswers = [];
+
+// دالة خلط الأسئلة واختيار 20 سؤالاً عشوائياً
+function prepareQuestions() {
+    let shuffled = [...allQuestions].sort(() => 0.5 - Math.random());
+    gameQuestions = shuffled.slice(0, 20); // اقتطاع 20 سؤالاً فقط للمسابقة الحالية
+}
+
+function startQuiz() {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('quiz-screen').classList.remove('hidden');
+    prepareQuestions();
+    showQuestion();
+}
+
+function showQuestion() {
+    if (currentQuestionIndex >= gameQuestions.length) {
+        endQuiz();
+        return;
+    }
+
+    const currentQuestion = gameQuestions[currentQuestionIndex];
+    document.getElementById('question-text').innerText = `سلسلة الأخطاء المتوقعة ${currentQuestionIndex + 1}: ${currentQuestion.q}`;
+    
+    const container = document.getElementById('options-container');
+    container.innerHTML = '';
+
+    currentQuestion.options.forEach((option, index) => {
+        const button = document.createElement('button');
+        button.className = 'btn';
+        button.innerText = option;
+        button.onclick = () => selectOption(index);
+        container.appendChild(button);
+    });
+}
+
+function selectOption(selectedIndex) {
+    // قفل الأزرار فور الاختيار حتى لا يتمكن المتسابق من تعديل الجواب
+    const buttons = document.querySelectorAll('#options-container .btn');
+    buttons.forEach(btn => btn.disabled = true);
+
+    userAnswers.push(selectedIndex);
+
+    // الانتقال للسؤال التالي تلقائياً بعد نصف ثانية لحفظ استمرارية اللعب بسلاسة
+    setTimeout(() => {
+        currentQuestionIndex++;
+        showQuestion();
+    }, 500);
+}
+
+function endQuiz() {
+    document.getElementById('quiz-screen').classList.add('hidden');
+    document.getElementById('result-screen').classList.remove('hidden');
+
+    let correctCount = 0;
+    const reviewContainer = document.getElementById('review-container');
+    reviewContainer.innerHTML = '';
+
+    gameQuestions.forEach((question, index) => {
+        const userChoice = userAnswers[index];
+        const isCorrect = userChoice === question.correct;
+        if (isCorrect) correctCount++;
+
+        const card = document.createElement('div');
+        card.className = `result-box ${isCorrect ? 'correct-card' : 'wrong-card'}`;
+        
+        let htmlContent = `<strong>س${index + 1}: ${question.q}</strong><br>`;
+        htmlContent += `إجابتك: ${question.options[userChoice]}<br>`;
+        
+        if (!isCorrect) {
+            htmlContent += `<span style="color:var(--success);">الجواب الصحيح: ${question.options[question.correct]}</span>`;
+        }
+        
+        card.innerHTML = htmlContent;
+        reviewContainer.appendChild(card);
+    });
+
+    // حساب النتيجة من 100
+    const finalScore = (correctCount / gameQuestions.length) * 100;
+    document.getElementById('final-score').innerText = `نتيجتك النهائية: ${finalScore} / 100`;
+}
+</script>
+
+</body>
+</html>
